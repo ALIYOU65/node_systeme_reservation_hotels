@@ -1,0 +1,209 @@
+import chambrephoto from '../models/chambrephoto.model.js';
+import fs from 'fs';
+import path from 'path';
+import dotenv from 'dotenv';
+import chambrephotoValidation from '../validations/chambrephoto.validation.js';
+
+dotenv.config();
+
+// Création d'un bloc chambrephoto avec images 
+const createPhotoBlock = async (req, res) => {
+  try {
+    // 1. Vérifiez que des fichiers ont été envoyés
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({ message: 'Aucun fichier envoyé' });
+    }
+
+    // 2. Construisez le tableau des images à partir des fichiers 
+    const images = req.files.map((file) => ({
+      url: `${req.protocol}://${req.get('host')}/uploads/hotels/${encodeURIComponent(file.filename)}`,
+    }));
+
+    // 3. Ajoutez le tableau 'images' à req.body pour validation
+    req.body.images = images;
+
+    // 4. Exécutez la validation Joi APRÈS mapping
+    const { error } = chambrephotoValidation(req.body).chambrephotoCreate;
+    if (error) {
+      return res.status(400).json({ message: error.details[0].message });
+    }
+
+    // 5. Créez un nouveau document chambrephoto (bloc) avec les données
+    const photoDoc = new chambrephoto({
+      nom: req.body.nom,
+      alt: req.body.alt,
+      images,
+    });
+
+    const saved = await photoDoc.save();
+    return res.status(201).json(saved);
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: 'Erreur serveur', error: error.message });
+  }
+};
+
+// Mise à jour d'un bloc chambrephoto 
+const updatePhotoBlock = async (req, res) => {
+  try {
+    const photoId = req.params.photoId;
+    const photo = await chambrephoto.findById(photoId);
+    if (!photo) {
+      return res.status(404).json({ message: 'Bloc chambrephoto n\'existe pas' });
+    }
+
+    // Mise à jour des champs texte (nom et alt) si présents
+    if (req.body.nom) {
+      photo.nom = req.body.nom;
+    }
+    if (req.body.alt) {
+      photo.alt = req.body.alt;
+    }
+
+    // Si de NOUVEAUX fichiers sont envoyés, les AJOUTER au tableau images existant
+    if (req.files && req.files.length > 0) {
+      const newImages = req.files.map(file => ({
+        url: `${req.protocol}://${req.get('host')}/uploads/chambres/${encodeURIComponent(file.filename)}`,
+      }));
+      photo.images = photo.images.concat(newImages);
+    }
+
+    // Sauvegarde
+    const updated = await photo.save();
+    return res.status(200).json(updated);
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: 'Erreur serveur', error: error.message });
+  }
+};
+
+// Suppression d'une image spécifique d'un bloc 
+const removeImageFromBlock = async (req, res) => {
+  try {
+    const photoId = req.params.photoId;
+    const imageId = req.params.imageId;
+
+    const photo = await chambrephoto.findById(photoId);
+    if (!photo) {
+      return res.status(404).json({ message: 'Bloc chambrephoto non trouvé' });
+    }
+
+    // Trouve l'image par _id dans le tableau images
+    const imageIndex = photo.images.findIndex(img => img._id.toString() === imageId);
+    if (imageIndex === -1) {
+      return res.status(404).json({ message: 'Image non trouvée dans le bloc' });
+    }
+
+    // Supprime le fichier du disque
+    const imageUrl = photo.images[imageIndex].url;
+    let filePath = imageUrl.replace(process.env.BASE_URL + '/', '').replace(/\\/g, '/');
+    fs.unlink(filePath, (err) => {
+      if (err) console.error('Erreur suppression image :', err);
+    });
+
+    // Supprime l'image du tableau
+    photo.images.splice(imageIndex, 1);
+
+    // Sauvegarde le bloc mis à jour
+    const updated = await photo.save();
+
+    return res.status(200).json({
+      message: 'Image supprimée du bloc',
+      bloc: updated,
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: 'Erreur serveur', error: error.message });
+  }
+};
+
+// Suppression d'un bloc chambrephoto entier (DELETE /chambrephotos/:photoId)
+const deletePhotoBlock = async (req, res) => {
+  try {
+    const photoId = req.params.photoId;
+    const photo = await chambrephoto.findById(photoId);
+    if (!photo) {
+      return res.status(404).json({ message: 'Bloc chambrephoto n\'existe pas' });
+    }
+
+    // Supprime les fichiers images du disque (boucle sur images)
+    for (const image of photo.images) {
+      let filePath = image.url.replace(process.env.BASE_URL + '/', '').replace(/\\/g, '/');
+      fs.unlink(filePath, (err) => {
+        if (err) console.error('Erreur suppression image :', err);
+      });
+    }
+
+    // Supprime le document chambrephoto
+    await chambrephoto.findByIdAndDelete(photoId);
+
+    res.status(200).json({ message: 'Bloc chambrephoto supprimé' });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: 'Erreur serveur', error: error.message });
+  }
+};
+
+// Liste tous les blocs chambrephoto 
+const getAllPhotoBlocks = async (req, res) => {
+  try {
+    const photos = await chambrephoto.find().sort({ createdAt: -1 }); // Tri par date récente
+
+    // Mappe pour normalisation 
+    const normalizedPhotos = photos.map(photo => {
+      const normalizedImages = photo.images.map(image => {
+        let normalizedUrl = image.url.replace(/\\/g, '/');
+        if (!normalizedUrl.startsWith('http')) {
+          normalizedUrl = `${process.env.BASE_URL}/${normalizedUrl}`;
+        }
+        return {
+          ...image.toObject(),
+          url: normalizedUrl,
+        };
+      });
+
+      return {
+        ...photo.toObject(),
+        images: normalizedImages,
+      };
+    });
+
+    return res.status(200).json(normalizedPhotos); 
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Erreur serveur', error: error.message });
+  }
+};
+
+// Récupère un bloc chambrephoto par ID (GET /chambrephotos/:photoId)
+const getPhotoBlockById = async (req, res) => {
+  try {
+    const photo = await chambrephoto.findById(req.params.photoId);
+
+    if (!photo) return res.status(404).json({ message: 'Bloc chambrephoto n\'existe pas' });
+
+    // Normalisation images
+    const normalizedImages = photo.images.map(image => {
+      let normalizedUrl = image.url.replace(/\\/g, '/');
+      if (!normalizedUrl.startsWith('http')) {
+        normalizedUrl = `${process.env.BASE_URL}/${normalizedUrl}`;
+      }
+      return {
+        ...image.toObject(),
+        url: normalizedUrl,
+      };
+    });
+
+    const response = {
+      ...photo.toObject(),
+      images: normalizedImages,
+    };
+
+    return res.status(200).json(response);
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: 'Erreur serveur', error: error.message });
+  }
+};
+
+export { createPhotoBlock, updatePhotoBlock, deletePhotoBlock, getAllPhotoBlocks, getPhotoBlockById, removeImageFromBlock };
