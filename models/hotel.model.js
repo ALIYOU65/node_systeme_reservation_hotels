@@ -17,13 +17,13 @@ const hotelSchema = new mongoose.Schema({
     type: Number,
     required: true
   },
-  etoiles: {  // Nouveau champ pour le nombre d'étoiles (1 à 5)
+  etoiles: {  
     type: Number,
     min: 1,
     max: 5,
     required: true
   },
-  personnel: {  // Liaison 1:1 avec User (rôle PERSONNEL)
+  personnel: {  
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     required: true
@@ -45,7 +45,7 @@ const hotelSchema = new mongoose.Schema({
     type: Boolean,
     default: false  
   },
-  // Bonus : Qui a validé (ref vers User rôle MODERATEUR), et quand
+  // Qui a validé (ref vers User rôle MODERATEUR), et quand
   validatedBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',

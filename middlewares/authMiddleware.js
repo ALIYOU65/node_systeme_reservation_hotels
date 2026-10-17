@@ -14,7 +14,6 @@ const authMiddleware = (req, res, next) => {
       return res.status(401).json({ message: 'Token invalide.' });
     }
 
-    // ⚡ On expose l'id et le rôle dans req.user
     req.user = {
       id: decoded.id,
       role: decoded.role,

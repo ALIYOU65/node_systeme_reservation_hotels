@@ -26,7 +26,6 @@ export default function chambreValidation(body, isUpdate = false) {
       'any.required': 'L\'ID de l\'hôtel est requis.' 
     }),
 
-    // ✅ Champs manquants ajoutés
     reservations: joi.array().items(objectId).optional().messages({
       'array.base': 'Le champ reservations doit être un tableau d’IDs valides.'
     }),

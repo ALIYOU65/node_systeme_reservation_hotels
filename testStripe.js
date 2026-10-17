@@ -20,7 +20,7 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
       success_url: 'http://localhost:5173/success',
       cancel_url: 'http://localhost:5173/cancel',
     });
-    console.log('✅ Session Stripe OK:', session.id);
+    console.log(' Session Stripe OK:', session.id);
   } catch (err) {
     console.error('❌ Erreur Stripe test:', err);
   }

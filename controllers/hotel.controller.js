@@ -3,14 +3,11 @@ import Photo from '../models/photo.model.js';
 import Avis from '../models/avis.model.js';
 import hotelValidation from '../validations/hotel.validation.js';
 import dotenv from 'dotenv';
-// import Chambre from '../models/chambre.model.js';
 
 dotenv.config();
 
-/**
- * 🏨 Créer un hôtel (avec validation + photos + personnel)
- */
-const createHotel = async (req, res) => {
+ // Créer un hôtel (avec validation + photos + personnel)
+  const createHotel = async (req, res) => {
   try {
     // Debug : affichage du corps de la requête (utile en développement)
     console.log('Debug createHotel - Body:', req.body);
@@ -36,19 +33,17 @@ const createHotel = async (req, res) => {
       nom,
       adresse,
       description,
-      etoiles: Number(etoiles),           // Conversion explicite en nombre
-      prix: Number(prix),                 // Prix de base ou par nuit (selon ta logique)
+      etoiles: Number(etoiles),          
+      prix: Number(prix),                 
       
       // Lien avec le personnel connecté (propriétaire de l'hôtel)
-      personnel: req.user.id,             // req.user provient du middleware protect
+      personnel: req.user.id,            
 
-      // Gestion des photos : on combine les URLs déjà présentes (ex: via lien externe)
-      // + les nouvelles photos uploadées via multer
       photos: [
-        ...(req.body.photos || []),       // Photos ajoutées manuellement (liens externes)
+        ...(req.body.photos || []),       
         ...(req.files 
           ? req.files.map(f => ({ 
-              url: `/uploads/hotels/${f.filename}`   // Chemin local servi par Express.static
+              url: `/uploads/hotels/${f.filename}`   
             })) 
           : []
         )
@@ -72,7 +67,7 @@ const createHotel = async (req, res) => {
     const savedWithPhotos = await Hotel.findById(saved._id)
       .populate({
         path: 'photos',
-        populate: { path: 'images', select: 'url' }   // Si tu as un sous-modèle Image
+        populate: { path: 'images', select: 'url' }   
       })
       .populate({
         path: 'chambres',
@@ -126,10 +121,8 @@ const getAllHotels = async (req, res) => {
   }
 };
 
-/**
- * 🔍 Récupérer un hôtel par ID (avec photos, chambres, avis)
- */
-const getHotelById = async (req, res) => {
+ // Récupérer un hôtel par ID (avec photos, chambres, avis)
+  const getHotelById = async (req, res) => {
   try {
     console.log("Fetch hôtel ID :", req.params.hotelId);
 
@@ -146,12 +139,13 @@ const getHotelById = async (req, res) => {
         }
       })
       .populate({
-      path: 'avis',
-      populate: {
-      path: 'user',
-      select: 'prenom nom'
-    }
-   })
+        path: 'avis',
+        populate: {
+          path: 'user',
+          select: 'prenom nom'
+        }
+      });
+
     if (!hotel) {
       console.log("Hôtel non trouvé pour ID :", req.params.hotelId);
       return res.status(404).json({ message: 'Hôtel non trouvé' });
@@ -165,15 +159,14 @@ const getHotelById = async (req, res) => {
   }
 };
 
-/**
- * ✏️ Mise à jour d’un hôtel
- */
-const updateHotel = async (req, res) => {
+ // Mise à jour d’un hôtel
+  const updateHotel = async (req, res) => {
   try {
     const { error } = hotelValidation(req.body, true).hotelUpdate;
     if (error) {
       return res.status(400).json({ message: error.details[0].message });
     }
+
     const hotelId = req.params.hotelId;
     const updateData = { ...req.body };
     const updated = await Hotel.findByIdAndUpdate(hotelId, updateData, { new: true })
@@ -181,6 +174,7 @@ const updateHotel = async (req, res) => {
         path: 'photos',
         populate: { path: 'images', select: 'url' }
       });
+
     if (!updated) return res.status(404).json({ message: 'Hôtel non trouvé' });
     return res.status(200).json(updated);
   } catch (error) {
@@ -189,10 +183,8 @@ const updateHotel = async (req, res) => {
   }
 };
 
-/**
- * ❌ Suppression d’un hôtel
- */
-const deleteHotel = async (req, res) => {
+ // Suppression d’un hôtel
+ const deleteHotel = async (req, res) => {
   try {
     const hotelId = req.params.hotelId;
     const hotel = await Hotel.findById(hotelId);
@@ -208,10 +200,8 @@ const deleteHotel = async (req, res) => {
   }
 };
 
-/**
- * 🖼️ Lier des blocs photo à un hôtel
- */
-const linkPhotoBlocksToHotel = async (req, res) => {
+ // Lier des blocs photo à un hôtel
+  const linkPhotoBlocksToHotel = async (req, res) => {
   try {
     const { photoBlockIds } = req.body;
     const hotelId = req.params.hotelId;
@@ -242,38 +232,36 @@ const linkPhotoBlocksToHotel = async (req, res) => {
   }
 };
 
-/**
- * ✅ Validation d’un hôtel par un modérateur
- */
-const validateHotel = async (req, res) => {
-  try {
-    const { id } = req.params;
+ // Validation d’un hôtel par un modérateur
+  const validateHotel = async (req, res) => {
+  try {
+    const { id } = req.params;
 
-    // Utilisation de findByIdAndUpdate pour modifier seulement les champs de validation
-    const updated = await Hotel.findByIdAndUpdate(
-      id,
-      { 
-        $set: {
-          validated: true,
-          validatedBy: req.user.id, // Utilisé directement, pas besoin de userId si c'est déjà dans req.user.id
-          validatedAt: new Date()
-        } 
-      },
-      { new: true, runValidators: true } // Utiliser { new: true } pour obtenir le document mis à jour
-    )
-    .populate('validatedBy', 'nom prenom')
+    // Utilisation de findByIdAndUpdate pour modifier seulement les champs de validation
+    const updated = await Hotel.findByIdAndUpdate(
+      id,
+      { 
+        $set: {
+          validated: true,
+          validatedBy: req.user.id, 
+          validatedAt: new Date()
+        } 
+      },
+      { new: true, runValidators: true } 
+    )
+    .populate('validatedBy', 'nom prenom')
     .populate({
-        path: 'photos',
-        populate: { path: 'images', select: 'url' }
+      path: 'photos',
+      populate: { path: 'images', select: 'url' }
     });
 
-    if (!updated) return res.status(404).json({ message: 'Hôtel non trouvé après la mise à jour' });
+    if (!updated) return res.status(404).json({ message: 'Hôtel non trouvé après la mise à jour' });
 
-    res.status(200).json({ message: 'Hôtel validé avec succès', hotel: updated });
-  } catch (error) {
-    console.error("Erreur validateHotel:", error);
-    res.status(500).json({ message: 'Erreur lors de la validation', error: error.message });
-  }
+    res.status(200).json({ message: 'Hôtel validé avec succès', hotel: updated });
+  } catch (error) {
+    console.error("Erreur validateHotel:", error);
+    res.status(500).json({ message: 'Erreur lors de la validation', error: error.message });
+  }
 };
 
 const addAvisToHotel = async (req, res) => {
@@ -281,12 +269,12 @@ const addAvisToHotel = async (req, res) => {
     const { id: hotelId } = req.params;
     const { note, commentaire } = req.body;
 
-    console.log("req.user dans addAvisToHotel :", req.user); // DEBUG À LAISSER
+    console.log("req.user dans addAvisToHotel :", req.user);
 
-    // Vérifications critiques
-    if (!req.user || !req.user.id) {
+      if (!req.user || !req.user.id) {
       return res.status(401).json({ message: "Utilisateur non authentifié" });
     }
+
     if (!note || !commentaire?.trim()) {
       return res.status(400).json({ message: "Note et commentaire requis" });
     }
@@ -294,7 +282,7 @@ const addAvisToHotel = async (req, res) => {
     // Création de l'avis
     const nouvelAvis = new Avis({
       hotel: hotelId,
-      user: req.user.id,           // ICI : req.user.id (ou req.user._id si tu utilises _id)
+      user: req.user.id,           
       note: Number(note),
       commentaire: commentaire.trim(),
       status: 'pending'
@@ -321,10 +309,8 @@ const addAvisToHotel = async (req, res) => {
   }
 };
 
-/**
- * 📝 Récupérer les avis d’un hôtel
- */
-const getAvisByHotelId = async (req, res) => {
+ // Récupérer les avis d’un hôtel
+ const getAvisByHotelId = async (req, res) => {
   try {
     const { id } = req.params;
     const hotel = await Hotel.findById(id).populate({
@@ -332,6 +318,7 @@ const getAvisByHotelId = async (req, res) => {
       populate: { path: 'user', select: 'nom prenom' },  // Optionnel : Nom user pour avis
       match: { status: 'approved' } // ← affiche SEULEMENT les avis approuvés
     });
+
     if (!hotel) return res.status(404).json({ message: 'Hôtel non trouvé' });
 
     const avisList = hotel.avis || [];  // Fallback array vide si pas d'avis
@@ -343,10 +330,8 @@ const getAvisByHotelId = async (req, res) => {
   }
 };
 
-/**
- * 👨‍💼 Récupérer les hôtels d’un personnel connecté
- */
-const getMyHotels = async (req, res) => {
+ // Récupérer les hôtels d’un personnel connecté
+  const getMyHotels = async (req, res) => {
   try {
     if (req.user.role !== 'PERSONNEL') {
       return res.status(403).json({ message: 'Accès refusé - rôle PERSONNEL requis' });
@@ -374,23 +359,20 @@ const getMyHotels = async (req, res) => {
   }
 };
 
-/**
- * ✅ Approuver un avis par un modérateur
- */
-const approveAvis = async (req, res) => {
+ // Approuver un avis par un modérateur
+ const approveAvis = async (req, res) => {
   try {
-    const { id } = req.params;  // avisId
+    const { id } = req.params;  
     const avis = await Avis.findByIdAndUpdate(
       id, 
-      { status: 'approved' },  // Change status
-      { new: true }  // Renvoie l'avis mis à jour
-    ).select('-__v');  // Optionnel : Exclut champs inutiles
+      { status: 'approved' }, 
+      { new: true }  
+    ).select('-__v');  
 
     if (!avis) {
       return res.status(404).json({ message: 'Avis non trouvé' });
     }
 
-    // Optionnel : Log pour tracer
     console.log(`[DEBUG] Avis ${id} approuvé par ${req.user.id}`);
 
     res.status(200).json({ 
@@ -403,10 +385,8 @@ const approveAvis = async (req, res) => {
   }
 };
 
-/**
- * ❌ Rejeter un avis par un modérateur
- */
-const rejectAvis = async (req, res) => {
+// Rejeter un avis par un modérateur
+  const rejectAvis = async (req, res) => {
   try {
     const { id } = req.params;
     const avis = await Avis.findByIdAndUpdate(
@@ -419,7 +399,6 @@ const rejectAvis = async (req, res) => {
       return res.status(404).json({ message: 'Avis non trouvé' });
     }
 
-    // Optionnel : Log pour tracer
     console.log(`[DEBUG] Avis ${id} rejeté par ${req.user.id}`);
 
     res.status(200).json({ 
@@ -432,10 +411,8 @@ const rejectAvis = async (req, res) => {
   }
 };
 
-/**
- * Récupérer tous les avis en attente de modération
- */
-const getPendingAvis = async (req, res) => {
+// Récupérer tous les avis en attente de modération
+ const getPendingAvis = async (req, res) => {
   try {
     console.log('[MODERATION] Récupération des avis pending...');
     const avis = await Avis.find({ status: 'pending' })
@@ -453,7 +430,6 @@ const getPendingAvis = async (req, res) => {
 
 export { createHotel, getAllHotels, getHotelById, updateHotel, deleteHotel, linkPhotoBlocksToHotel, validateHotel, 
   addAvisToHotel, getAvisByHotelId, getMyHotels, approveAvis, rejectAvis, getPendingAvis };
-
 
 
 

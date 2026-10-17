@@ -12,7 +12,14 @@ const chambrePhotoSchema = new mongoose.Schema({
   alt: {
     type: String, // Description du bloc pour accessibilité
   },
-  images: [imageSubSchema], // Tableau d'images (seulement url, comme avant)
+  images: [imageSubSchema], // Tableau d'images
+  created_by: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User', 
+    required: true,
+  },
 }, { timestamps: true });
 
-export default mongoose.model('ChambrePhoto', chambrePhotoSchema);
+// export default mongoose.model('ChambrePhoto', chambrePhotoSchema);
+export default mongoose.models.ChambrePhoto || mongoose.model('ChambrePhoto', chambrePhotoSchema);
+

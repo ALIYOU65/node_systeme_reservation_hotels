@@ -9,17 +9,17 @@ export const rolesMiddleware = (authorizedRoles = []) => {
       const userRole = req.user.role;
       const requestedUserId = req.params.id;
 
-      // ✅ Cas 1 : l'utilisateur agit sur lui-même (profil personnel)
+      // l'utilisateur agit sur lui-même (profil personnel)
       if (requestedUserId && requestedUserId === userIdFromToken) {
         return next();
       }
 
-      // ✅ Cas 2 : l'utilisateur a un rôle autorisé
+      // l'utilisateur a un rôle autorisé
       if (authorizedRoles.includes(userRole)) {
         return next();
       }
 
-      // ❌ Cas 3 : accès refusé
+      // accès refusé
       return res.status(403).json({
         message: `Accès refusé. Rôles autorisés : ${authorizedRoles.join(", ")}.`,
       });
@@ -32,6 +32,7 @@ export const rolesMiddleware = (authorizedRoles = []) => {
 
 // Pour compatibilité (admin/modérateur)
 export const adminOnly = rolesMiddleware(["ADMIN", "MODERATEUR"]);
+
 export default rolesMiddleware;
 
 

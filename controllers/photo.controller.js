@@ -6,33 +6,28 @@ import photoValidation from '../validations/photo.validation.js';
 
 dotenv.config();
 
-// Création d'un bloc Photo avec images 
-const createPhotoBlock = async (req, res) => {
+ const createPhotoBlock = async (req, res) => {
   try {
-    // 1. Vérifiez que des fichiers ont été envoyés
     if (!req.files || req.files.length === 0) {
       return res.status(400).json({ message: 'Aucun fichier envoyé' });
     }
 
-    // 2. Construisez le tableau des images à partir des fichiers 
     const images = req.files.map((file) => ({
       url: `${req.protocol}://${req.get('host')}/uploads/hotels/${encodeURIComponent(file.filename)}`,
     }));
 
-    // 3. Ajoutez le tableau 'images' à req.body pour validation
     req.body.images = images;
 
-    // 4. Exécutez la validation Joi APRÈS mapping
     const { error } = photoValidation(req.body).photoCreate;
     if (error) {
       return res.status(400).json({ message: error.details[0].message });
     }
 
-    // 5. Créez un nouveau document Photo (bloc) avec les données
     const photoDoc = new Photo({
       nom: req.body.nom,
       alt: req.body.alt,
       images,
+      created_by: req.user.id || req.user._id, // Associe le bloc au personnel
     });
 
     const saved = await photoDoc.save();
@@ -43,8 +38,7 @@ const createPhotoBlock = async (req, res) => {
   }
 };
 
-// Mise à jour d'un bloc Photo
-const updatePhotoBlock = async (req, res) => {
+  const updatePhotoBlock = async (req, res) => {
   try {
     const photoId = req.params.photoId;
     const photo = await Photo.findById(photoId);
@@ -60,7 +54,6 @@ const updatePhotoBlock = async (req, res) => {
       photo.alt = req.body.alt;
     }
 
-    // Si de NOUVEAUX fichiers sont envoyés, les AJOUTER au tableau images existant
     if (req.files && req.files.length > 0) {
       const newImages = req.files.map(file => ({
         url: `${req.protocol}://${req.get('host')}/uploads/hotels/${encodeURIComponent(file.filename)}`,
@@ -78,7 +71,7 @@ const updatePhotoBlock = async (req, res) => {
 };
 
 // Suppression d'une image spécifique d'un bloc 
-const removeImageFromBlock = async (req, res) => {
+  const removeImageFromBlock = async (req, res) => {
   try {
     const photoId = req.params.photoId;
     const imageId = req.params.imageId;
@@ -118,7 +111,7 @@ const removeImageFromBlock = async (req, res) => {
 };
 
 // Suppression d'un bloc Photo entier (DELETE /photos/:photoId)
-const deletePhotoBlock = async (req, res) => {
+ const deletePhotoBlock = async (req, res) => {
   try {
     const photoId = req.params.photoId;
     const photo = await Photo.findById(photoId);
@@ -206,4 +199,35 @@ const getPhotoBlockById = async (req, res) => {
   }
 };
 
-export { createPhotoBlock, updatePhotoBlock, deletePhotoBlock, getAllPhotoBlocks, getPhotoBlockById, removeImageFromBlock };
+// Récupère uniquement les blocs du personnel connecté
+const getMyPhotoBlocks = async (req, res) => {
+  try {
+    const userId = req.user.id || req.user._id;
+    const photos = await Photo.find({ created_by: userId }).sort({ createdAt: -1 });
+
+    const normalizedPhotos = photos.map(photo => {
+      const normalizedImages = photo.images.map(image => {
+        let normalizedUrl = image.url.replace(/\\/g, '/');
+        if (!normalizedUrl.startsWith('http')) {
+          normalizedUrl = `${process.env.BASE_URL}/${normalizedUrl}`;
+        }
+        return {
+          ...image.toObject(),
+          url: normalizedUrl,
+        };
+      });
+
+      return {
+        ...photo.toObject(),
+        images: normalizedImages,
+      };
+    });
+
+    return res.status(200).json(normalizedPhotos);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Erreur serveur', error: error.message });
+  }
+};
+
+export { createPhotoBlock, updatePhotoBlock, deletePhotoBlock, getAllPhotoBlocks, getMyPhotoBlocks, getPhotoBlockById, removeImageFromBlock };
